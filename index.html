@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Los Impuestos en Colombia</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:     #f0f4f8;
+  --white:  #ffffff;
+  --ink:    #0f172a;
+  --muted:  #64748b;
+  --line:   #94a3b8;
+  --navy:   #1e3a5f;  --navy-bg:  #e8eef7;
+  --blue:   #1d4ed8;  --blue-bg:  #dbeafe;
+  --teal:   #0f766e;  --teal-bg:  #ccfbf1;
+  --green:  #15803d;  --green-bg: #dcfce7;
+  --purple: #6d28d9;  --purple-bg:#ede9fe;
+  --amber:  #b45309;  --amber-bg: #fef3c7;
+  --rose:   #be123c;  --rose-bg:  #ffe4e6;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  background: var(--bg);
+  font-family: 'Outfit', sans-serif;
+  color: var(--ink);
+  padding: 48px 0 80px;
+}
+
+/* ── HEADER ── */
+.ph { text-align:center; margin-bottom:52px; padding:0 24px; }
+.ph-badge {
+  display:inline-block; font-family:'JetBrains Mono',monospace;
+  font-size:10px; letter-spacing:3px; text-transform:uppercase;
+  background:var(--navy); color:#fff; padding:5px 16px; border-radius:4px; margin-bottom:14px;
+}
+.ph h1 { font-size:clamp(1.8rem,4vw,2.8rem); font-weight:800; color:var(--ink); letter-spacing:-1px; line-height:1.1; margin-bottom:6px; }
+.ph .sub { font-size:13px; color:var(--muted); }
+.ph .author { margin-top:10px; font-size:12px; color:#94a3b8; letter-spacing:.5px; }
+.ph .author strong { color:var(--navy); font-weight:700; }
+
+/* ════════════════════════════════════════
+   MAIN CANVAS
+   Fixed 3-column grid. Each ROW is a flex
+   of [left-cards] [connector-svg] [spine-node] [connector-svg] [right-cards]
+   All rendered with absolute heights so JS
+   can draw very short, clean connectors.
+════════════════════════════════════════ */
+.canvas {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 0 16px;
+  position: relative;
+}
+
+/* SVG overlay */
+#cvs {
+  position:absolute; top:0; left:0;
+  width:100%; height:100%;
+  pointer-events:none; overflow:visible; z-index:1;
+}
+
+/* Each section is a row block */
+.row {
+  display: grid;
+  grid-template-columns: 255px 48px 1fr 48px 255px;
+  align-items: center;
+  margin-bottom: 0;
+  position: relative;
+  z-index: 2;
+}
+
+/* Connector cells — transparent, JS draws into SVG overlay */
+.conn { /* empty */ }
+
+/* Left / right card areas */
+.l-area { display:flex; flex-direction:column; gap:8px; align-items:flex-end; padding-right:0; }
+.r-area { display:flex; flex-direction:column; gap:8px; align-items:flex-start; padding-left:0; }
+.area-label {
+  font-size:9px; font-weight:700; letter-spacing:2px; text-transform:uppercase;
+  color:var(--muted); margin-bottom:2px; width:100%;
+  text-align:left;
+}
+.l-area .area-label { text-align:right; }
+
+/* Spine cell */
+.sp { display:flex; flex-direction:column; align-items:center; }
+
+/* Gap rows (vertical spacing between blocks) */
+.gap-row {
+  display:flex; flex-direction:column; align-items:center;
+  position:relative; z-index:2;
+}
+.gap-row.gap-sm  { height:28px; }
+.gap-row.gap-md  { height:48px; }
+.gap-row.gap-lg  { height:68px; }
+
+/* Section label rows */
+.sec-row {
+  display:flex; align-items:center; justify-content:center;
+  position:relative; z-index:2; margin:0;
+}
+.sec-label {
+  display:flex; align-items:center; gap:10px;
+  font-size:9px; font-weight:700; letter-spacing:2.5px; text-transform:uppercase; color:var(--muted);
+  width:320px;
+}
+.sec-label::before,.sec-label::after { content:''; flex:1; height:1px; background:var(--line); }
+
+/* ── SPINE SHAPES ── */
+.oval {
+  border-radius:50px; padding:12px 32px;
+  font-size:13px; font-weight:700; letter-spacing:2px; text-transform:uppercase;
+  text-align:center; width:100%; max-width:280px;
+}
+.oval-s { background:var(--ink); color:#fff; }
+.oval-e { background:var(--green); color:#fff; }
+
+.pbox {
+  border-radius:14px; border:2.5px solid; padding:20px 22px;
+  width:100%; max-width:280px; background:var(--white);
+  position:relative; text-align:center;
+}
+.pbox .lbl { font-size:9px; font-weight:700; letter-spacing:2.5px; text-transform:uppercase; margin-bottom:6px; opacity:.75; display:block; }
+.pbox .ttl { font-size:16px; font-weight:700; line-height:1.2; margin-bottom:5px; }
+.pbox .sub { font-size:11.5px; color:var(--muted); line-height:1.5; }
+
+.sbadge {
+  position:absolute; top:-13px; left:50%; transform:translateX(-50%);
+  width:26px; height:26px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:600;
+  color:#fff; border:2.5px solid #f0f4f8;
+}
+
+/* Diamond */
+.dmd {
+  position:relative; width:188px; height:118px; flex-shrink:0;
+}
+.dmd-bg {
+  position:absolute; top:0; left:0; width:100%; height:100%;
+  transform:rotate(45deg) scale(.68); border-radius:10px; border:2.5px solid;
+}
+.dmd-txt {
+  position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+  font-size:12px; font-weight:700; text-align:center; line-height:1.3; width:130px;
+}
+.dmd-yes { font-size:10px; font-weight:700; color:#16a34a; text-align:center; margin-top:3px; }
+
+/* Vertical arrow in spine */
+.varr { display:flex; flex-direction:column; align-items:center; }
+
+/* ── SIDE CARDS ── */
+.scard {
+  border-radius:10px; border:1.5px solid; padding:10px 13px;
+  background:var(--white); font-size:12px; font-weight:600; line-height:1.3; width:100%;
+}
+.scard .ss { font-size:11px; font-weight:400; color:var(--muted); margin-top:3px; line-height:1.4; }
+.scard .sl { display:inline-flex; align-items:center; gap:3px; margin-top:5px; font-size:10px; font-weight:700; font-style:italic; text-decoration:underline; text-underline-offset:2px; }
+
+.txcard {
+  border-radius:10px; border:2px solid; padding:11px 14px; background:var(--white); width:100%;
+}
+.txcard .tn { font-size:12px; font-weight:700; margin-bottom:2px; }
+.txcard .tr { font-family:'JetBrains Mono',monospace; font-size:14px; font-weight:600; margin-bottom:3px; }
+.txcard .td { font-size:10.5px; color:var(--muted); line-height:1.4; margin-bottom:4px; }
+.txcard .tl { display:inline-flex; align-items:center; gap:3px; font-size:10px; font-weight:700; font-style:italic; text-decoration:underline; text-underline-offset:2px; }
+
+/* Color helpers */
+.cn { color:var(--navy);   border-color:var(--navy);   background:var(--navy-bg);   }
+.cb { color:var(--blue);   border-color:var(--blue);   background:var(--blue-bg);   }
+.ct { color:var(--teal);   border-color:var(--teal);   background:var(--teal-bg);   }
+.cg { color:var(--green);  border-color:var(--green);  background:var(--green-bg);  }
+.cp { color:var(--purple); border-color:var(--purple); background:var(--purple-bg); }
+.ca { color:var(--amber);  border-color:var(--amber);  background:var(--amber-bg);  }
+.cr { color:var(--rose);   border-color:var(--rose);   background:var(--rose-bg);   }
+
+a.ilink { font-weight:700; font-style:italic; text-decoration:underline; text-underline-offset:2px; }
+
+/* ── LEGEND / NOTE ── */
+.bottom { max-width:1080px; margin:40px auto 0; display:flex; gap:14px; flex-wrap:wrap; padding:0 16px; }
+.legend-box {
+  background:var(--white); border:1px solid #e2e8f0; border-radius:10px;
+  padding:14px 20px; display:flex; gap:18px; flex-wrap:wrap; align-items:center; flex:1;
+}
+.lt { font-size:10px; font-weight:700; letter-spacing:2px; text-transform:uppercase; color:var(--muted); }
+.li { display:flex; align-items:center; gap:7px; font-size:11px; color:var(--ink); }
+.ls-oval { width:28px; height:14px; border-radius:20px; background:var(--ink); }
+.ls-rect { width:20px; height:14px; border:2px solid var(--navy); border-radius:3px; }
+.ls-dia  { width:13px; height:13px; border:2px solid var(--blue); transform:rotate(45deg); border-radius:2px; }
+.note-box {
+  background:var(--amber-bg); border:1.5px solid #d97706; border-radius:10px;
+  padding:14px 18px; font-size:12px; color:var(--amber); line-height:1.7; flex:2;
+}
+.note-box strong { color:var(--ink); }
+.note-box a { color:var(--amber); font-weight:700; font-style:italic; text-decoration:underline; text-underline-offset:2px; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="ph">
+  <div class="ph-badge">Flujograma · Impuestos Colombia</div>
+  <h1>Los Impuestos en Colombia</h1>
+  <p class="sub">Concepto · Clasificación · Proceso de Creación · Aplicación en Bogotá</p>
+  <p class="author">Elaborado por <strong>Julián Sebastián Moreno</strong></p>
+</div>
+
+<div class="canvas" id="canvas">
+<svg id="cvs"></svg>
+
+<!-- ══════════════════════════════════════════
+  ROW 1: INICIO
+══════════════════════════════════════════ -->
+<div class="row" id="row-inicio">
+  <div></div><div class="conn"></div>
+  <div class="sp">
+    <div class="oval oval-s" id="n-inicio">INICIO</div>
+  </div>
+  <div class="conn"></div><div></div>
+</div>
+
+<div class="gap-row gap-sm">
+  <div class="varr"><svg width="20" height="28"><line x1="10" y1="0" x2="10" y2="20" stroke="#94a3b8" stroke-width="2.5"/><polygon points="10,28 4,16 16,16" fill="#94a3b8"/></svg></div>
+</div>
+
+<!-- ══════════════════════════════════════════
+  ROW 2: CONCEPTO
+  Left: Características (3 cards)
+  Right: Destino (3 cards)
+══════════════════════════════════════════ -->
+<div class="row" id="row-concepto">
+  <div class="l-area">
+    <div class="area-label">Características</div>
+    <div class="scard cn" id="c-oblig">⚖️ Obligatorio<div class="ss">Establecido por ley — no es voluntario</div></div>
+    <div class="scard cn" id="c-sincp">💰 Sin contraprestación<div class="ss">No hay beneficio directo e individual</div></div>
+    <div class="scard cn" id="c-finsoc">🎯 Fin social<div class="ss">Financia servicios públicos esenciales</div></div>
+  </div>
+  <div class="conn"></div>
+  <div class="sp">
+    <div class="pbox cn" id="n-concepto">
+      <span class="lbl" style="color:var(--navy);">01 — Concepto</span>
+      <div class="ttl">¿Qué es un Impuesto?</div>
+      <div class="sub">Obligación económica legal impuesta por el Estado sin contraprestación directa, con fin social.</div>
+    </div>
+  </div>
+  <div class="conn"></div>
+  <div class="r-area">
+    <div class="area-label">Destino del impuesto</div>
+    <div class="scard cn" id="c-salud">🏥 Salud pública<div class="ss">Hospitales y cobertura médica</div></div>
+    <div class="scard cn" id="c-educ">🎓 Educación<div class="ss">Colegios y universidades públicas</div></div>
+    <div class="scard cn" id="c-infra">🏗️ Infraestructura<div class="ss">Vías, puentes, servicios públicos</div></div>
+  </div>
+</div>
+
+<div class="gap-row gap-sm">
+  <div class="varr"><svg width="20" height="28"><line x1="10" y1="0" x2="10" y2="20" stroke="#94a3b8" stroke-width="2.5"/><polygon points="10,28 4,16 16,16" fill="#94a3b8"/></svg></div>
+</div>
+
+<!-- ROMBO 1 -->
+<div class="row" id="row-rombo1">
+  <div class="l-area">
+    <div class="area-label" style="color:var(--rose);">NO → No es impuesto</div>
+    <div class="scard cr" id="c-noesp">🚫 No aplica<div class="ss">No cumple con el principio de fin colectivo</div></div>
+  </div>
+  <div class="conn"></div>
+  <div class="sp" style="display:flex;flex-direction:column;align-items:center;">
+    <div class="dmd" id="n-rombo1">
+      <div class="dmd-bg cn" style="background:var(--navy-bg);"></div>
+      <div class="dmd-txt cn">¿Financia<br>gasto público?</div>
+    </div>
+    <div class="dmd-yes">SÍ ↓</div>
+  </div>
+  <div class="conn"></div>
+  <div></div>
+</div>
+
+<div class="gap-row gap-sm">
+  <div class="varr"><svg width="20" height="28"><line x1="10" y1="0" x2="10" y2="20" stroke="#94a3b8" stroke-width="2.5"/><polygon points="10,28 4,16 16,16" fill="#94a3b8"/></svg></div>
+</div>
+
+<!-- SECTION: CLASIFICACIÓN -->
+<div class="sec-row"><div class="sec-label"><span>Clasificación</span></div></div>
+
+<div class="gap-row gap-sm">
+  <div class="varr"><svg width="20" height="24"><line x1="10" y1="0" x2="10" y2="16" stroke="#94a3b8" stroke-width="2.5"/><polygon points="10,24 4,12 16,12" fill="#94a3b8"/></svg></div>
+</div>
+
+<!-- ══════════════════════════════════════════
+  ROW 3: CLASIFICACIÓN
+  Left: Por sujeto (2 cards)
+  Right: Por territorio y tarifa (4 cards)
+══════════════════════════════════════════ -->
+<div class="row" id="row-clasif">
+  <div class="l-area">
+    <div class="area-label">Por sujeto</div>
+    <div class="scard cn" id="c-direct">👤 Directos<div class="ss">Recaen sobre la persona<br><em>Ej: Renta, Patrimonio</em></div></div>
+    <div class="scard cp" id="c-indir">🛒 Indirectos<div class="ss">Recaen sobre el consumo<br><em>Ej: IVA, Consumo</em></div></div>
+  </div>
+  <div class="conn"></div>
+  <div class="sp">
+    <div class="pbox cb" id="n-clasif">
+      <span class="lbl" style="color:var(--blue);">02 — Clasificación</span>
+      <div class="ttl">Tipos de Impuestos</div>
+      <div class="sub">Según sujeto, territorio y capacidad económica del contribuyente.</div>
+    </div>
+  </div>
+  <div class="conn"></div>
+  <div class="r-area">
+    <div class="area-label">Por territorio y tarifa</div>
+    <div class="scard cb" id="c-nac">🇨🇴 Nacional<div class="ss">DIAN — Renta, IVA, GMF</div></div>
+    <div class="scard ct" id="c-terr">🏙️ Territorial<div class="ss">Municipios — ICA, Predial</div></div>
+    <div class="scard cb" id="c-prog">📈 Progresivo<div class="ss">Mayor ingreso = mayor tasa. <em>Ej: Renta</em></div></div>
+    <div class="scard cp" id="c-regr">⚖️ Regresivo / Proporcional<div class="ss">Tasa fija. <em>Ej: IVA 19% para todos</em></div></div>
+  </div>
+</div>
+
+<div class="gap-row gap-sm">
+  <div class="varr"><svg width="20" height="28"><line x1="10" y1="0" x2="10" y2="20" stroke="#94a3b8" stroke-width="2.5"/><polygon points="10,28 4,16 16,16" fill="#94a3b8"/></svg></div>
+</div>
+
+<!-- SECTION: CREACIÓN -->
+<div class="sec-row"><div class="sec-label"><span>Creación</span></div></div>
+
+<div class="gap-row gap-sm">
+  <div class="varr"><svg width="20" height="24"><line x1="10" y1="0" x2="10" y2="16" stroke="#94a3b8" stroke-width="2.5"/><polygon points="10,24 4,12 16,12" fill="#94a3b8"/></svg></div>
+</div>
+
+<!-- ══════════════════════════════════════════
+  ROW 4: INICIATIVA
+  Left: ¿Quién puede presentar? (2 cards)
+══════════════════════════════════════════ -->
+<div class="row" id="row-inic">
+  <div class="l-area">
+    <div class="area-label">¿Quién puede presentarla?</div>
+    <div class="scard ct" id="c-minhac">🏛️ Min. Hacienda<div class="ss">Gobierno Nacional presenta el proyecto</div></div>
+    <div class="scard ct" id="c-congr">👥 Congresistas<div class="ss">Iniciativa parlamentaria</div><a href="https://www.camara.gov.co/como-se-tramita-una-ley/" target="_blank" class="sl ct">🔗 Ver proceso legislativo</a></div>
+  </div>
+  <div class="conn"></div>
+  <div class="sp">
+    <div class="pbox ct" id="n-inic">
+      <div class="sbadge" style="background:var(--teal);">1</div>
+      <span class="lbl" style="color:var(--teal);">03 — Cómo se crea</span>
+      <div class="ttl">Iniciativa Legislativa</div>
+      <div class="sub">Proyecto presentado al Congreso de la República.</div>
+    </div>
+  </div>
+  <div class="conn"></div>
+  <div></div>
+</div>
+
+<div class="gap-row gap-sm">
+  <div class="varr"><svg width="20" height="28"><line x1="10" y1="0" x2="10" y2="20" stroke="#94a3b8" stroke-width="2.5"/><polygon points="10,28 4,16 16,16" fill="#94a3b8"/></svg></div>
+</div>
+
+<!-- ══════════════════════════════════════════
+  ROW 5: DEBATE
+  Right: Art. 338
+══════════════════════════════════════════ -->
+<div class="row" id="row-debate">
+  <div></div>
+  <div class="conn"></div>
+  <div class="sp">
+    <div class="pbox ct" id="n-debate">
+      <div class="sbadge" style="background:var(--teal);">2</div>
+      <div class="ttl">Debate en el Congreso</div>
+      <div class="sub">4 debates obligatorios: Comisión + Plenaria en Cámara y Senado.</div>
+    </div>
+  </div>
+  <div class="conn"></div>
+  <div class="r-area">
+    <div class="area-label">Base legal</div>
+    <div class="scard ct" id="c-art338">📜 Art. 338 C.P.<div class="ss">"Solo el Congreso puede imponer tributos en tiempo de paz"</div><a href="https://constituciondecolombia.com.co/modules/arts/art338.html" target="_blank" class="sl ct">🔗 Leer artículo</a></div>
+  </div>
+</div>
+
+<div class="gap-row gap-sm">
+  <div class="varr"><svg width="20" height="28"><line x1="10" y1="0" x2="10" y2="20" stroke="#94a3b8" stroke-width="2.5"/><polygon points="10,28 4,16 16,16" fill="#94a3b8"/></svg></div>
+</div>
+
+<!-- ROMBO 2: ¿Aprobado? -->
+<div class="row" id="row-rombo2">
+  <div class="l-area">
+    <div class="area-label" style="color:var(--rose);">NO → Se archiva</div>
+    <div class="scard cr" id="c-archiva">❌ Se archiva<div class="ss">El proyecto queda sin efecto en el Congreso</div></div>
+  </div>
+  <div class="conn"></div>
+  <div class="sp" style="display:flex;flex-direction:column;align-items:center;">
+    <div class="dmd" id="n-rombo2">
+      <div class="dmd-bg ct" style="background:var(--teal-bg);"></div>
+      <div class="dmd-txt ct">¿Aprobado<br>en 4 debates?</div>
+    </div>
+    <div class="dmd-yes">SÍ ↓</div>
+  </div>
+  <div class="conn"></div>
+  <div></div>
+</div>
+
+<div class="gap-row gap-sm">
+  <div class="varr"><svg width="20" height="28"><line x1="10" y1="0" x2="10" y2="20" stroke="#94a3b8" stroke-width="2.5"/><polygon points="10,28 4,16 16,16" fill="#94a3b8"/></svg></div>
+</div>
+
+<!-- ══════════════════════════════════════════
+  ROW 6: SANCIÓN
+══════════════════════════════════════════ -->
+<div class="row" id="row-sancion">
+  <div></div><div class="conn"></div>
+  <div class="sp">
+    <div class="pbox ct" id="n-sancion">
+      <div class="sbadge" style="background:var(--teal);">3</div>
+      <div class="ttl">Sanción Presidencial</div>
+      <div class="sub">El Presidente firma y promulga la ley tributaria.</div>
+    </div>
+  </div>
+  <div class="conn"></div><div></div>
+</div>
+
+<div class="gap-row gap-sm">
+  <div class="varr"><svg width="20" height="28"><line x1="10" y1="0" x2="10" y2="20" stroke="#94a3b8" stroke-width="2.5"/><polygon points="10,28 4,16 16,16" fill="#94a3b8"/></svg></div>
+</div>
+
+<!-- ROMBO 3: ¿Constitucional? -->
+<div class="row" id="row-rombo3">
+  <div></div>
+  <div class="conn"></div>
+  <div class="sp" style="display:flex;flex-direction:column;align-items:center;">
+    <div class="dmd" id="n-rombo3">
+      <div class="dmd-bg ct" style="background:var(--teal-bg);"></div>
+      <div class="dmd-txt ct">¿Es<br>constitucional?<br><small style="font-size:9.5px;">(Art. 338)</small></div>
+    </div>
+    <div class="dmd-yes">SÍ ↓</div>
+  </div>
+  <div class="conn"></div>
+  <div class="r-area">
+    <div class="area-label" style="color:var(--rose);">NO → Revisión</div>
+    <div class="scard cr" id="c-corte">⚖️ Corte Constitucional<div class="ss">Puede revisar y anular la ley tributaria</div></div>
+  </div>
+</div>
+
+<div class="gap-row gap-sm">
+  <div class="varr"><svg width="20" height="28"><line x1="10" y1="0" x2="10" y2="20" stroke="#94a3b8" stroke-width="2.5"/><polygon points="10,28 4,16 16,16" fill="#94a3b8"/></svg></div>
+</div>
+
+<!-- ══════════════════════════════════════════
+  ROW 7: PROMULGACIÓN
+══════════════════════════════════════════ -->
+<div class="row" id="row-promulg">
+  <div></div><div class="conn"></div>
+  <div class="sp">
+    <div class="pbox ct" id="n-promulg">
+      <div class="sbadge" style="background:var(--teal);">4</div>
+      <div class="ttl">Promulgación</div>
+      <div class="sub">Publicación en Diario Oficial. La <a href="https://www.dian.gov.co/impuestos" target="_blank" class="ilink ct">DIAN</a> reglamenta su aplicación.</div>
+    </div>
+  </div>
+  <div class="conn"></div><div></div>
+</div>
+
+<div class="gap-row gap-sm">
+  <div class="varr"><svg width="20" height="28"><line x1="10" y1="0" x2="10" y2="20" stroke="#94a3b8" stroke-width="2.5"/><polygon points="10,28 4,16 16,16" fill="#94a3b8"/></svg></div>
+</div>
+
+<!-- SECTION: NACIONALES -->
+<div class="sec-row"><div class="sec-label"><span>Aplicación · Nacionales</span></div></div>
+
+<div class="gap-row gap-sm">
+  <div class="varr"><svg width="20" height="24"><line x1="10" y1="0" x2="10" y2="16" stroke="#94a3b8" stroke-width="2.5"/><polygon points="10,24 4,12 16,12" fill="#94a3b8"/></svg></div>
+</div>
+
+<!-- ══════════════════════════════════════════
+  ROW 8: IMPUESTOS NACIONALES
+  Left: IVA, GMF, Retención
+  Right: Renta, Consumo, Patrimonio
+══════════════════════════════════════════ -->
+<div class="row" id="row-nac">
+  <div class="l-area">
+    <div class="area-label">Más impuestos nacionales</div>
+    <div class="txcard cp" id="c-iva">
+      <div class="tn">🛒 IVA</div>
+      <div class="tr" style="color:var(--purple);">19%</div>
+      <div class="td">Bienes y servicios gravados. Bimestral o cuatrimestral.</div>
+      <a href="https://www.gerencie.com/tarifa-general-en-el-impuesto-a-las-ventas.html" target="_blank" class="tl cp">🔗 Tarifa IVA</a>
+    </div>
+    <div class="txcard ct" id="c-gmf">
+      <div class="tn">🏦 GMF — 4×1000</div>
+      <div class="tr" style="color:var(--teal);">0.4%</div>
+      <div class="td">Por cada transacción bancaria. Retiros y transferencias.</div>
+      <a href="https://www.cdt.santander.com.co/que-es-el-4x1000-colombia" target="_blank" class="tl ct">🔗 Qué es el 4×1000</a>
+    </div>
+    <div class="txcard ca" id="c-rfte">
+      <div class="tn">✂️ Retención en la Fuente</div>
+      <div class="tr" style="color:var(--amber);">Variable</div>
+      <div class="td">Recaudo anticipado de renta, IVA e ICA. Mensual.</div>
+      <a href="https://www.dian.gov.co/impuestos" target="_blank" class="tl ca">🔗 DIAN Impuestos</a>
+    </div>
+  </div>
+  <div class="conn"></div>
+  <div class="sp">
+    <div class="pbox" id="n-nac" style="background:var(--navy);border-color:var(--navy);">
+      <span class="lbl" style="color:#93c5fd;">Nacionales — DIAN</span>
+      <div class="ttl" style="color:#fff;">Impuestos Nacionales</div>
+      <div class="sub" style="color:rgba(255,255,255,.65);">Administrados por la <a href="https://www.dian.gov.co/impuestos" target="_blank" class="ilink" style="color:#7dd3fc;">DIAN</a>. Aplican en todo el país.</div>
+    </div>
+  </div>
+  <div class="conn"></div>
+  <div class="r-area">
+    <div class="area-label">Principales nacionales</div>
+    <div class="txcard cb" id="c-renta">
+      <div class="tn">📊 Renta y Complementarios</div>
+      <div class="tr" style="color:var(--blue);">35%</div>
+      <div class="td">Utilidades netas. UVT 2026: $52.374. Declaración anual.</div>
+      <a href="https://actualicese.com/tarifa-general-del-impuesto-de-renta-2026-para-personas-juridicas/" target="_blank" class="tl cb">🔗 Tarifas Renta 2026</a>
+      &nbsp;<a href="https://actualicese.com/uvt-2026/" target="_blank" class="tl cb">🔗 UVT 2026</a>
+    </div>
+    <div class="txcard ca" id="c-cons">
+      <div class="tn">📦 Impuesto al Consumo</div>
+      <div class="tr" style="color:var(--amber);">8%</div>
+      <div class="td">Restaurantes, telecom, vehículos. Bimestral.</div>
+      <a href="https://siemprealdia.co/colombia/impuestos/impuesto-nacional-al-consumo/" target="_blank" class="tl ca">🔗 Info INC</a>
+    </div>
+    <div class="txcard cr" id="c-patri">
+      <div class="tn">🏗️ Patrimonio</div>
+      <div class="tr" style="color:var(--rose);">0.5% – 1.5%</div>
+      <div class="td">&gt; 72.000 UVT ≈ $3.771M COP. Declaración anual.</div>
+      <a href="https://blog.alegra.com/colombia/impuesto-al-patrimonio-2026/" target="_blank" class="tl cr">🔗 Patrimonio 2026</a>
+    </div>
+  </div>
+</div>
+
+<div class="gap-row gap-sm">
+  <div class="varr"><svg width="20" height="28"><line x1="10" y1="0" x2="10" y2="20" stroke="#94a3b8" stroke-width="2.5"/><polygon points="10,28 4,16 16,16" fill="#94a3b8"/></svg></div>
+</div>
+
+<!-- SECTION: DISTRITALES -->
+<div class="sec-row"><div class="sec-label"><span>Distritales · Bogotá</span></div></div>
+
+<div class="gap-row gap-sm">
+  <div class="varr"><svg width="20" height="24"><line x1="10" y1="0" x2="10" y2="16" stroke="#94a3b8" stroke-width="2.5"/><polygon points="10,24 4,12 16,12" fill="#94a3b8"/></svg></div>
+</div>
+
+<!-- ══════════════════════════════════════════
+  ROW 9: IMPUESTOS DISTRITALES
+  Left: ICA, Avisos
+  Right: Predial, Vehículos
+══════════════════════════════════════════ -->
+<div class="row" id="row-dis">
+  <div class="l-area">
+    <div class="area-label">Actividad económica</div>
+    <div class="txcard cg" id="c-ica">
+      <div class="tn">🏪 ICA</div>
+      <div class="tr" style="color:var(--green);">0.2% – 1.4%</div>
+      <div class="td">Industria y Comercio en Bogotá. Declaración anual.</div>
+      <a href="https://bogota.gov.co/mi-ciudad/hacienda/se-actualizan-actividades-y-tarifas-de-ica" target="_blank" class="tl cg">🔗 Tarifas ICA Bogotá</a>
+    </div>
+    <div class="txcard ct" id="c-avisos">
+      <div class="tn">📋 Avisos y Tableros</div>
+      <div class="tr" style="color:var(--teal);">15% s/ ICA</div>
+      <div class="td">Publicidad exterior visible al público en Bogotá.</div>
+      <a href="https://bogota.gov.co/mi-ciudad/hacienda/impuestos-distritales" target="_blank" class="tl ct">🔗 SHD Bogotá</a>
+    </div>
+  </div>
+  <div class="conn"></div>
+  <div class="sp">
+    <div class="pbox" id="n-dis" style="background:var(--green);border-color:var(--green);">
+      <span class="lbl" style="color:#86efac;">Distritales — SHD</span>
+      <div class="ttl" style="color:#fff;">Impuestos Distritales</div>
+      <div class="sub" style="color:rgba(255,255,255,.65);">Administrados por la <a href="https://bogota.gov.co/mi-ciudad/hacienda/impuestos-distritales" target="_blank" class="ilink" style="color:#bbf7d0;">SHD Bogotá</a>.</div>
+    </div>
+  </div>
+  <div class="conn"></div>
+  <div class="r-area">
+    <div class="area-label">Inmuebles y vehículos</div>
+    <div class="txcard cg" id="c-predial">
+      <div class="tn">🏢 Predial Unificado</div>
+      <div class="tr" style="color:var(--green);">Variable</div>
+      <div class="td">Inmuebles en Bogotá. Avalúo catastral. Anual.</div>
+      <a href="https://bogota.gov.co/mi-ciudad/hacienda/impuestos-distritales" target="_blank" class="tl cg">🔗 SHD Bogotá</a>
+    </div>
+    <div class="txcard ca" id="c-vehi">
+      <div class="tn">🚗 Vehículos Automotores</div>
+      <div class="tr" style="color:var(--amber);">1.5% – 3.5%</div>
+      <div class="td">Matriculados en Bogotá. Sobre valor comercial.</div>
+      <a href="https://newsroom.rcnradio.com/colombia/bogota-define-calendario-tributario-2026-asi-funcionara-el-pago-del-impuesto-a-vehiculos" target="_blank" class="tl ca">🔗 Calendario Bogotá 2026</a>
+    </div>
+  </div>
+</div>
+
+<div class="gap-row gap-sm">
+  <div class="varr"><svg width="20" height="28"><line x1="10" y1="0" x2="10" y2="20" stroke="#94a3b8" stroke-width="2.5"/><polygon points="10,28 4,16 16,16" fill="#94a3b8"/></svg></div>
+</div>
+
+<!-- FIN -->
+<div class="row" id="row-fin">
+  <div></div><div></div>
+  <div class="sp">
+    <div class="oval oval-e" id="n-fin">✓ Cumplimiento Tributario</div>
+  </div>
+  <div></div><div></div>
+</div>
+
+</div><!-- end canvas -->
+
+<!-- LEYENDA + NOTA -->
+<div class="bottom">
+  <div class="legend-box">
+    <span class="lt">Leyenda</span>
+    <div class="li"><div class="ls-oval"></div> Inicio / Fin</div>
+    <div class="li"><div class="ls-rect"></div> Proceso</div>
+    <div class="li"><div class="ls-dia"></div> Decisión (Sí / No)</div>
+    <div class="li">↗ Línea diagonal = Rama de detalle</div>
+    <div class="li">🔗 = Fuente oficial</div>
+  </div>
+  <div class="note-box">
+    <strong>📌 Fuentes:</strong>
+    <a href="https://www.dian.gov.co/impuestos" target="_blank">DIAN</a> ·
+    <a href="https://bogota.gov.co/mi-ciudad/hacienda/impuestos-distritales" target="_blank">SHD Bogotá</a> ·
+    <a href="https://constituciondecolombia.com.co/modules/arts/art338.html" target="_blank">Art. 338 C.P.</a> ·
+    <a href="https://www.camara.gov.co/como-se-tramita-una-ley/" target="_blank">Proceso Legislativo</a> ·
+    <a href="https://actualicese.com/uvt-2026/" target="_blank">UVT 2026</a> ·
+    <a href="https://www.bbva.com/es/co/empresas/calendario-tributario-dian-fechas-y-obligaciones-para-empresas-en-colombia/" target="_blank">Calendario DIAN</a>
+    <br>Las tarifas pueden cambiar con cada reforma tributaria. Verificar con un contador público.
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════
+   Each entry: spine node id → { left: [card ids], right: [card ids] }
+   JS measures the actual centre of the spine node and the
+   actual centre of each card, then draws a polyline:
+     spine-edge  ─(horiz)─  elbow  ─(diagonal or straight)─  card-edge
+   This keeps lines clean and avoids the "sprawling" look.
+═══════════════════════════════════════════════════════════ */
+const MAP = {
+  'n-concepto': { left:  ['c-oblig','c-sincp','c-finsoc'],
+                  right: ['c-salud','c-educ','c-infra']   },
+  'n-rombo1':   { left:  ['c-noesp'], right: [] },
+  'n-clasif':   { left:  ['c-direct','c-indir'],
+                  right: ['c-nac','c-terr','c-prog','c-regr'] },
+  'n-inic':     { left:  ['c-minhac','c-congr'], right: [] },
+  'n-debate':   { left:  [], right: ['c-art338'] },
+  'n-rombo2':   { left:  ['c-archiva'], right: [] },
+  'n-rombo3':   { left:  [], right: ['c-corte'] },
+  'n-nac':      { left:  ['c-iva','c-gmf','c-rfte'],
+                  right: ['c-renta','c-cons','c-patri'] },
+  'n-dis':      { left:  ['c-ica','c-avisos'],
+                  right: ['c-predial','c-vehi'] },
+};
+
+const COLORS = {
+  'n-concepto': '#1e3a5f',
+  'n-rombo1':   '#be123c',
+  'n-clasif':   '#1d4ed8',
+  'n-inic':     '#0f766e',
+  'n-debate':   '#0f766e',
+  'n-rombo2':   '#be123c',
+  'n-rombo3':   '#be123c',
+  'n-nac':      '#1e3a5f',
+  'n-dis':      '#15803d',
+};
+
+function draw() {
+  const svg  = document.getElementById('cvs');
+  const base = document.getElementById('canvas');
+  const br   = base.getBoundingClientRect();
+
+  svg.style.width  = base.offsetWidth  + 'px';
+  svg.style.height = base.offsetHeight + 'px';
+  svg.innerHTML = '';
+
+  function R(el) {
+    const r = el.getBoundingClientRect();
+    return {
+      t:  r.top    - br.top,
+      b:  r.bottom - br.top,
+      l:  r.left   - br.left,
+      r:  r.right  - br.left,
+      cy: (r.top + r.bottom) / 2 - br.top,
+      cx: (r.left + r.right) / 2 - br.left,
+    };
+  }
+
+  function line(x1,y1,x2,y2, color) {
+    const el = document.createElementNS('http://www.w3.org/2000/svg','line');
+    el.setAttribute('x1',x1); el.setAttribute('y1',y1);
+    el.setAttribute('x2',x2); el.setAttribute('y2',y2);
+    el.setAttribute('stroke', color);
+    el.setAttribute('stroke-width','2');
+    el.setAttribute('stroke-linecap','round');
+    svg.appendChild(el);
+  }
+
+  function arrowHead(x2,y2,x1,y1, color) {
+    const ang = Math.atan2(y2-y1, x2-x1);
+    const L=9, W=4.5;
+    const bx = x2 - L*Math.cos(ang), by = y2 - L*Math.sin(ang);
+    const p1x = bx + W*Math.sin(ang), p1y = by - W*Math.cos(ang);
+    const p2x = bx - W*Math.sin(ang), p2y = by + W*Math.cos(ang);
+    const poly = document.createElementNS('http://www.w3.org/2000/svg','polygon');
+    poly.setAttribute('points',`${x2},${y2} ${p1x},${p1y} ${p2x},${p2y}`);
+    poly.setAttribute('fill', color);
+    svg.appendChild(poly);
+  }
+
+  function connect(spineEl, cardEl, side, color) {
+    const sR = R(spineEl);
+    const cR = R(cardEl);
+
+    if (side === 'left') {
+      // Start: left edge of spine node, at spine cy
+      const sx = sR.l;
+      const sy = sR.cy;
+      // End: right edge of card, at card cy
+      const ex = cR.r + 2;
+      const ey = cR.cy;
+
+      if (Math.abs(sy - ey) < 6) {
+        // Nearly horizontal — just draw straight
+        line(sx, sy, ex, ey, color);
+        arrowHead(ex, ey, sx, sy, color);
+      } else {
+        // Elbow: go left a bit, then diagonal to card
+        const elbowX = sx - 18;
+        line(sx, sy, elbowX, sy, color);   // short horiz from spine
+        line(elbowX, sy, ex, ey, color);   // diagonal to card
+        arrowHead(ex, ey, elbowX, sy, color);
+      }
+    } else {
+      // Start: right edge of spine node
+      const sx = sR.r;
+      const sy = sR.cy;
+      const ex = cR.l - 2;
+      const ey = cR.cy;
+
+      if (Math.abs(sy - ey) < 6) {
+        line(sx, sy, ex, ey, color);
+        arrowHead(ex, ey, sx, sy, color);
+      } else {
+        const elbowX = sx + 18;
+        line(sx, sy, elbowX, sy, color);
+        line(elbowX, sy, ex, ey, color);
+        arrowHead(ex, ey, elbowX, sy, color);
+      }
+    }
+  }
+
+  for (const [nodeId, sides] of Object.entries(MAP)) {
+    const nodeEl = document.getElementById(nodeId);
+    if (!nodeEl) continue;
+    const color = COLORS[nodeId] || '#94a3b8';
+
+    (sides.left  || []).forEach(cid => {
+      const c = document.getElementById(cid);
+      if (c) connect(nodeEl, c, 'left', color);
+    });
+    (sides.right || []).forEach(cid => {
+      const c = document.getElementById(cid);
+      if (c) connect(nodeEl, c, 'right', color);
+    });
+  }
+}
+
+window.addEventListener('load', () => { draw(); window.addEventListener('resize', draw); });
+</script>
+</body>
+</html>
